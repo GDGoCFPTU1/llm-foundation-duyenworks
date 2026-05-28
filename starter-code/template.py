@@ -142,34 +142,64 @@ def call_gemini(
     # TODO: Initialize Gemini client, set config parameters, call generate_content,
     #       measure latency, extract response text and usage metadata, and return the tuple.
 
-    # Import and initialize Gemini client
-    from google import genai
-    from google.genai import types
-    client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+    api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY") or "mock-key"
+    start_time = time.time()
+    
+    try:
+        # Option A: New Google GenAI SDK (preferred standard)
+        from google import genai
+        from google.genai import types
+        
+        client = genai.Client(api_key=api_key)
+        config = types.GenerateContentConfig(
+            temperature=temperature,
+            top_p=top_p,
+            max_output_tokens=max_tokens
+        )
+        response = client.models.generate_content(
+            model=model,
+            contents=prompt,
+            config=config
+        )
+        latency = time.time() - start_time
+        
+        text = response.text or ""
+        usage = {
+            "input_tokens": response.usage_metadata.prompt_token_count if response.usage_metadata else 0,
+            "output_tokens": response.usage_metadata.candidates_token_count if response.usage_metadata else 0,
+        }
+        return text, latency, usage
+        
+    except (ImportError, Exception):
+        # Option B: Fallback to legacy google-generativeai SDK
+        import google.generativeai as genai
+        
+        genai.configure(api_key=api_key)
+        model_inst = genai.GenerativeModel(model)
+        config = genai.types.GenerationConfig(
+            temperature=temperature,
+            top_p=top_p,
+            max_output_tokens=max_tokens
+        )
+        response = model_inst.generate_content(prompt, generation_config=config)
+        latency = time.time() - start_time
+        
+        text = response.text or ""
+        try:
+            # Retrieve token counts from legacy API
+            input_tokens = model_inst.count_tokens(prompt).total_tokens
+            output_tokens = model_inst.count_tokens(text).total_tokens
+        except Exception:
+            # Fallback heuristic calculation if token service fails
+            input_tokens = int(len(prompt.split()) * 1.5)
+            output_tokens = int(len(text.split()) * 1.5)
+            
+        usage = {
+            "input_tokens": input_tokens,
+            "output_tokens": output_tokens
+        }
+        return text, latency, usage
 
-    # Set up generation configuration and call the API while measuring latency
-    config = types.GenerateContentConfig(
-        temperature=temperature,
-        top_p=top_p,
-        max_output_tokens=max_tokens
-    )
-    start = time.time()
-    response = client.models.generate_content(
-        model=model,
-        contents=prompt,
-        config=config
-    )
-    latency_seconds = time.time() - start
-
-    # Extract response text and token usage from response metadata
-    response_text = response.text
-    usage = {
-        "input_tokens": response.usage_metadata.input_tokens,
-        "output_tokens": response.usage_metadata.output_tokens,
-    }
-
-    # Return tuple of response text, latency, and usage
-    return (response_text, latency_seconds, usage)
 
     raise NotImplementedError("Implement call_gemini")
 
