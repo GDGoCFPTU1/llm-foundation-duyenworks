@@ -1,4 +1,4 @@
-- Nguyễn Thị Bích Duyên
-- dnguyenn1101@gmail.com
-- duyenworks
-- duyenworks
+- Họ và Tên: Nguyễn Thị Bích Duyên
+- Gmail: dnguyenn1101@gmail.com
+- Github username: duyenworks
+- Discord username: duyenworks
